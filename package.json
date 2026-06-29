@@ -6,7 +6,8 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "node --watch src/server.js",
-    "start": "node src/server.js",
+    "build": "esbuild src/server.js --bundle --platform=node --format=esm --outfile=dist/server.js --packages=external",
+    "start": "node dist/server.js",
     "migrate": "psql $DATABASE_URL -f src/db/migrations/001_initial.sql"
   },
   "dependencies": {
@@ -21,6 +22,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "esbuild": "^0.24.0",
     "nodemon": "^3.1.7"
   },
   "engines": {
