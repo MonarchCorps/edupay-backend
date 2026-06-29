@@ -1,20 +1,29 @@
 {
   "name": "edupay-backend",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
+  "description": "EduPay DVA Infrastructure — Nomba hackathon 2026",
   "type": "module",
+  "main": "src/server.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js"
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "migrate": "psql $DATABASE_URL -f src/db/migrations/001_initial.sql"
   },
   "dependencies": {
-    "express": "^4.21.2"
+    "axios": "^1.7.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0",
+    "pg": "^8.13.0",
+    "uuid": "^10.0.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/express": "^4.17.21",
-    "@types/node": "^24.12.3",
-    "tsx": "^4.19.4",
-    "typescript": "~5.8.3"
+    "nodemon": "^3.1.7"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
