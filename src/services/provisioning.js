@@ -20,7 +20,7 @@ export async function provisionAccount({ merchantId, customerName, customerId, k
     accountRef,
     nombaAccountNumber: nombaResult?.bankAccountNumber ?? null,
     nambaBankName: nombaResult?.bankName ?? null,
-    nambaBankCode: nombaResult?.bankCode ?? null,
+    nambaBankCode: null, // Nomba does not return a bank code on DVA creation
     nombaRawResponse: nombaResult,
   })
 

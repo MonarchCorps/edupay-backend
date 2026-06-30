@@ -3,6 +3,8 @@ export function serializeAccount(row) {
   return {
     id: row.id,
     accountNumber: row.nomba_account_number ?? '',
+    bankName: row.nomba_bank_name ?? '',
+    bankCode: row.nomba_bank_code ?? '',
     customerName: row.customer_name,
     customerId: row.customer_id,
     status: row.status,

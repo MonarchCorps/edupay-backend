@@ -15,6 +15,7 @@ const keySchema = z.object({
   label: z.string().max(100).optional(),
 })
 
+router.get('/merchants/by-email',                                          ctrl.getMerchantByEmail)
 router.post('/merchants',                       validate(merchantSchema), ctrl.registerMerchant)
 router.post('/merchants/:merchantId/keys',     validate(keySchema),       ctrl.bootstrapKey)
 router.post('/keys',     requireAuth,          validate(keySchema),       ctrl.generateKey)

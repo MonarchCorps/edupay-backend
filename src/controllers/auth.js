@@ -5,6 +5,16 @@ import { success } from '../utils/response.js'
 import { serializeApiKey } from '../utils/serializers.js'
 import { errors } from '../utils/errors.js'
 
+export async function getMerchantByEmail(req, res, next) {
+  try {
+    const { email } = req.query
+    if (!email) throw errors.badRequest('email query param is required')
+    const merchant = await findMerchantByEmail(email)
+    if (!merchant) throw errors.notFound('Merchant')
+    return success(res, merchant)
+  } catch (err) { next(err) }
+}
+
 export async function registerMerchant(req, res, next) {
   try {
     const { name, email } = req.body

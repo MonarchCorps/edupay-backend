@@ -10,8 +10,8 @@ const nombaClient = axios.create({
 nombaClient.interceptors.request.use(async (config) => {
   const token = await getAccessToken()
   config.headers.Authorization = `Bearer ${token}`
-  // Auth uses parent account ID; all resource calls are scoped to the sub-account
-  config.headers.accountId = process.env.NOMBA_SUB_ACCOUNT_ID || process.env.NOMBA_ACCOUNT_ID
+  // Every Nomba endpoint requires the parent account ID in this header
+  config.headers.accountId = process.env.NOMBA_ACCOUNT_ID
   return config
 })
 
