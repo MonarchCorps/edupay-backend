@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS virtual_accounts (
   kyc_tier             VARCHAR(10) NOT NULL DEFAULT 'tier1'
                        CHECK (kyc_tier IN ('tier1','tier2','tier3')),
   balance              BIGINT NOT NULL DEFAULT 0,
+  last_credit_at       TIMESTAMPTZ,
   rename_history       JSONB NOT NULL DEFAULT '[]',
   nomba_raw_response   JSONB,
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),

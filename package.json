@@ -8,7 +8,7 @@
     "dev": "node --watch src/server.js",
     "build": "esbuild src/server.js --bundle --platform=node --format=esm --outfile=dist/server.js --packages=external",
     "start": "node src/server.js",
-    "migrate": "psql $DATABASE_URL -f src/db/migrations/001_initial.sql"
+    "migrate": "psql $DATABASE_URL -f src/db/migrations/001_initial.sql && psql $DATABASE_URL -f src/db/migrations/002_add_last_credit_at.sql"
   },
   "dependencies": {
     "axios": "^1.7.7",
