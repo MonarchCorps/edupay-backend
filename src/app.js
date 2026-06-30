@@ -16,6 +16,7 @@ app.use(helmet());
 app.use(
     cors({
         origin: [
+            'https://edupay-frontend-s8w4.onrender.com',
             'http://localhost:5173', // Vite dev server
             'http://localhost:4173', // Vite preview
             'http://localhost:3000', // alternative dev port
