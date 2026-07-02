@@ -11,14 +11,15 @@ export async function createAccount(
         nambaBankName,
         nambaBankCode,
         nombaRawResponse,
+        environment = 'sandbox',
     },
     client = pool,
 ) {
     const res = await client.query(
         `INSERT INTO virtual_accounts
        (merchant_id, customer_id, customer_name, kyc_tier, account_ref,
-        nomba_account_number, nomba_bank_name, nomba_bank_code, nomba_raw_response, status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active')
+        nomba_account_number, nomba_bank_name, nomba_bank_code, nomba_raw_response, environment, status)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'active')
      RETURNING *`,
         [
             merchantId,
@@ -30,6 +31,7 @@ export async function createAccount(
             nambaBankName ?? null,
             nambaBankCode ?? null,
             nombaRawResponse ? JSON.stringify(nombaRawResponse) : null,
+            environment,
         ],
     );
     return res.rows[0];
@@ -53,15 +55,16 @@ export async function findAccountByRef(accountRef, client = pool) {
 
 export async function findAccounts({
     merchantId,
+    environment,
     status,
     kycTier,
     search,
     page = 1,
     pageSize = 20,
 }) {
-    const conds = ['merchant_id = $1'];
-    const params = [merchantId];
-    let i = 2;
+    const conds = ['merchant_id = $1', 'environment = $2'];
+    const params = [merchantId, environment];
+    let i = 3;
 
     if (status) {
         conds.push(`status = $${i++}`);

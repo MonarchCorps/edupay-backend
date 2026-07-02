@@ -33,6 +33,9 @@ export async function requireAuth(req, res, next) {
             name: apiKey.merchant_name,
             email: apiKey.merchant_email,
         };
+        // Which environment this key belongs to — downstream services use
+        // this to keep sandbox data/calls fully isolated from live ones.
+        req.merchantMode = apiKey.environment;
 
         // Fire-and-forget last_used update
         updateApiKeyLastUsed(apiKey.id).catch(console.error);

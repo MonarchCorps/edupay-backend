@@ -2,6 +2,7 @@ import pool from '../config/db.js';
 import {
     findAccountByRef,
     updateAccountBalance,
+    updateAccountStatus,
     addAuditLog,
 } from '../db/queries/accounts.js';
 import {
@@ -68,13 +69,33 @@ async function handlePaymentSuccess(webhookEvent, client) {
     const account = await findAccountByRef(aliasRef, client);
 
     if (!account) {
+        // No virtual account matches this reference at all — Nomba should only
+        // send webhooks for accounts we provisioned, so this is a data/integration
+        // problem rather than a normal "wrong recipient" case. There's no account
+        // (and thus no merchant) to attach a transaction row to, so surface it as
+        // a failed webhook for manual investigation instead of fabricating a row.
         throw new Error(
-            `Misdirected payment: accountRef ${aliasRef} not found — no virtual account matched`,
+            `Unmatched account reference: accountRef ${aliasRef} not found — no virtual account matched`,
         );
     }
 
     // Nomba sends transactionAmount (Naira), not amount
     const amountKobo = toKobo(txn.transactionAmount ?? txn.amount);
+    // Sender info lives in payload.data.customer, not in transaction
+    const senderName =
+        customer.senderName ?? txn.senderName ?? txn.sourceAccountName ?? null;
+    const senderBank =
+        customer.bankName ?? txn.senderBank ?? txn.sourceBankName ?? null;
+    const senderAccount =
+        customer.accountNumber ??
+        txn.senderAccount ??
+        txn.sourceAccountNumber ??
+        null;
+
+    // Valid account, but does the sender's declared name plausibly belong to
+    // this account's customer? A mismatch means the money landed on the right
+    // virtual account number but likely for the wrong student/customer.
+    const misdirected = !namesLikelyMatch(senderName, account.customer_name);
 
     await createTransaction(
         {
@@ -83,31 +104,40 @@ async function handlePaymentSuccess(webhookEvent, client) {
             amount: amountKobo,
             direction: 'credit',
             status: 'success',
-            matched: true,
-            misdirected: false,
-            // Sender info lives in payload.data.customer, not in transaction
-            senderName:
-                customer.senderName ??
-                txn.senderName ??
-                txn.sourceAccountName ??
-                null,
-            senderBank:
-                customer.bankName ??
-                txn.senderBank ??
-                txn.sourceBankName ??
-                null,
-            senderAccount:
-                customer.accountNumber ??
-                txn.senderAccount ??
-                txn.sourceAccountNumber ??
-                null,
+            matched: !misdirected,
+            misdirected,
+            senderName,
+            senderBank,
+            senderAccount,
             nombaSessionId: txn.sessionId,
             nambaTxnId: txn.transactionId,
             narration: txn.narration,
             nombaRawPayload: payload.data,
+            environment: account.environment,
         },
         client,
     );
+
+    if (misdirected) {
+        // Hold the funds out of the account balance until the merchant reviews
+        // and resolves it (allocate credits the balance, return does not).
+        await updateAccountStatus(account.id, 'flagged', client);
+        await addAuditLog(
+            {
+                virtualAccountId: account.id,
+                action: 'misdirected_detected',
+                newValue: {
+                    amountKobo,
+                    transactionId: txn.transactionId,
+                    senderName,
+                    expectedName: account.customer_name,
+                },
+                reason: 'Sender name does not match expected account holder',
+            },
+            client,
+        );
+        return;
+    }
 
     await updateAccountBalance(account.id, amountKobo, client);
 
@@ -124,7 +154,7 @@ async function handlePaymentSuccess(webhookEvent, client) {
             newValue: {
                 amountKobo,
                 transactionId: txn.transactionId,
-                senderName: customer.senderName ?? txn.senderName,
+                senderName,
             },
         },
         client,
@@ -163,6 +193,7 @@ async function handlePaymentReversal(webhookEvent, client) {
             nambaTxnId: reversalId,
             narration: 'Payment reversal',
             nombaRawPayload: txn,
+            environment: original.environment,
         },
         client,
     );
@@ -210,9 +241,39 @@ async function handlePaymentFailed(webhookEvent, client) {
             nambaTxnId: txn.transactionId,
             narration: txn.narration,
             nombaRawPayload: txn,
+            environment: account.environment,
         },
         client,
     );
+}
+
+// Normalize a free-text bank transfer name into comparable word tokens:
+// lowercase, strip punctuation, collapse whitespace.
+function normalizeNameTokens(name) {
+    return String(name ?? '')
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+}
+
+// Loose match for sender-declared names vs. an account's customer name.
+// Real bank transfer names vary in word order, middle names/initials, and
+// titles (e.g. "MRS GRACE OKONKWO" vs "Grace Okonkwo"), so we compare token
+// overlap rather than requiring an exact (or even case-insensitive) match.
+// If either side has no usable tokens, we can't tell — don't flag.
+function namesLikelyMatch(senderName, accountHolderName) {
+    const senderTokens = normalizeNameTokens(senderName);
+    const accountTokens = normalizeNameTokens(accountHolderName);
+    if (!senderTokens.length || !accountTokens.length) return true;
+
+    const accountSet = new Set(accountTokens);
+    const shared = senderTokens.filter((t) => accountSet.has(t)).length;
+    const required = Math.ceil(
+        Math.min(senderTokens.length, accountTokens.length) / 2,
+    );
+    return shared >= required;
 }
 
 function toKobo(amount) {

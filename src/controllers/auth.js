@@ -2,6 +2,7 @@ import { generateApiKey } from '../utils/crypto.js';
 import {
     createApiKey,
     findApiKeysByMerchant,
+    hasApiKeyForMerchant,
     revokeApiKey,
 } from '../db/queries/apiKeys.js';
 import {
@@ -13,11 +14,11 @@ import { success } from '../utils/response.js';
 import { serializeApiKey } from '../utils/serializers.js';
 import { errors } from '../utils/errors.js';
 
-export async function getMerchantByEmail(req, res, next) {
+// Sign-in check: the caller already proved possession of a valid API key via
+// requireAuth, so this just confirms it and returns the merchant it belongs to.
+export async function getMe(req, res, next) {
     try {
-        const { email } = req.query;
-        if (!email) throw errors.badRequest('email query param is required');
-        const merchant = await findMerchantByEmail(email);
+        const merchant = await findMerchantById(req.merchant.id);
         if (!merchant) throw errors.notFound('Merchant');
         return success(res, merchant);
     } catch (err) {
@@ -39,13 +40,23 @@ export async function registerMerchant(req, res, next) {
 }
 
 // Bootstrap: generate the FIRST key for a merchant using only their ID.
-// No prior API key needed. Safe because the caller must know the merchant UUID.
+// No prior API key needed — only usable immediately after registration, once,
+// before any key exists for the merchant. This is what closes the hole where
+// knowing/guessing a merchant UUID let anyone mint themselves a fresh key.
 export async function bootstrapKey(req, res, next) {
     try {
         const merchant = await findMerchantById(req.params.merchantId);
         if (!merchant) throw errors.notFound('Merchant');
 
-        const { key, prefix, hash } = generateApiKey();
+        if (await hasApiKeyForMerchant(merchant.id)) {
+            throw errors.conflict(
+                'This merchant already has an API key — bootstrap can only run once',
+            );
+        }
+
+        // Bootstrap always mints a sandbox key — merchants opt into a live
+        // key later via Settings once they're ready to move off test data.
+        const { key, prefix, hash, environment } = generateApiKey('sandbox');
         const { label } = req.body ?? {};
 
         const record = await createApiKey({
@@ -53,6 +64,7 @@ export async function bootstrapKey(req, res, next) {
             keyHash: hash,
             keyPrefix: prefix,
             label: label ?? 'Default key',
+            environment,
         });
 
         return success(res, serializeApiKey({ ...record, key }), 201);
@@ -63,14 +75,15 @@ export async function bootstrapKey(req, res, next) {
 
 export async function generateKey(req, res, next) {
     try {
-        const { key, prefix, hash } = generateApiKey();
-        const { label } = req.body;
+        const { label, mode } = req.body;
+        const { key, prefix, hash, environment } = generateApiKey(mode);
 
         const record = await createApiKey({
             merchantId: req.merchant.id,
             keyHash: hash,
             keyPrefix: prefix,
             label,
+            environment,
         });
 
         // Return raw key ONCE — never stored

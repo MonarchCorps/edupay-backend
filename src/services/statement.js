@@ -5,11 +5,16 @@ import { errors } from '../utils/errors.js';
 export async function getStatement({
     accountId,
     merchantId,
+    environment,
     page = 1,
     pageSize = 50,
 }) {
     const account = await findAccountById(accountId);
-    if (!account || account.merchant_id !== merchantId) {
+    if (
+        !account ||
+        account.merchant_id !== merchantId ||
+        account.environment !== environment
+    ) {
         throw errors.notFound('Account');
     }
 

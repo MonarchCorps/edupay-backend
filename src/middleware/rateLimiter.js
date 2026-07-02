@@ -16,6 +16,24 @@ export const rateLimiter = rateLimit({
     },
 });
 
+// Sign-in verification (/auth/me) — a handful of attempts per IP per minute,
+// tight enough to make brute-forcing a valid API key impractical.
+export const authMeRateLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req, res) => {
+        res.status(429).json({
+            success: false,
+            error: {
+                code: 'RATE_LIMIT_EXCEEDED',
+                message: 'Too many sign-in attempts — please try again shortly',
+            },
+        });
+    },
+});
+
 // Stricter limit for webhook endpoint
 export const webhookRateLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, // 1 minute

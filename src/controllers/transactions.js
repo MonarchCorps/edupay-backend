@@ -13,6 +13,7 @@ export async function list(req, res, next) {
             req.query;
         const { data, total } = await findTransactions({
             merchantId: req.merchant.id,
+            environment: req.merchantMode,
             virtualAccountId,
             direction,
             status,
@@ -34,7 +35,11 @@ export async function list(req, res, next) {
 
 export async function get(req, res, next) {
     try {
-        const txn = await findTransactionById(req.params.id, req.merchant.id);
+        const txn = await findTransactionById(
+            req.params.id,
+            req.merchant.id,
+            req.merchantMode,
+        );
         if (!txn) throw errors.notFound('Transaction');
         return success(res, serializeTransaction(txn));
     } catch (err) {
@@ -47,6 +52,7 @@ export async function resolve(req, res, next) {
         const result = await resolveMisdirectedPayment({
             transactionId: req.params.id,
             merchantId: req.merchant.id,
+            environment: req.merchantMode,
             action: req.body.action,
         });
         return success(res, result);

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
 import { requireAuth } from '../middleware/auth.js';
+import { authMeRateLimiter } from '../middleware/rateLimiter.js';
 import * as ctrl from '../controllers/auth.js';
 
 const router = Router();
@@ -13,9 +14,10 @@ const merchantSchema = z.object({
 
 const keySchema = z.object({
     label: z.string().max(100).optional(),
+    mode: z.enum(['sandbox', 'live']).default('sandbox'),
 });
 
-router.get('/merchants/by-email', ctrl.getMerchantByEmail);
+router.get('/me', authMeRateLimiter, requireAuth, ctrl.getMe);
 router.post('/merchants', validate(merchantSchema), ctrl.registerMerchant);
 router.post(
     '/merchants/:merchantId/keys',

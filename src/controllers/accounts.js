@@ -22,6 +22,7 @@ export async function create(req, res, next) {
     try {
         const account = await provisionAccount({
             merchantId: req.merchant.id,
+            environment: req.merchantMode,
             ...req.body,
         });
         return success(res, serializeAccount(account), 201);
@@ -35,6 +36,7 @@ export async function list(req, res, next) {
         const { status, kycTier, search, page, pageSize } = req.query;
         const { data, total } = await findAccounts({
             merchantId: req.merchant.id,
+            environment: req.merchantMode,
             status,
             kycTier,
             search,
@@ -56,7 +58,11 @@ export async function list(req, res, next) {
 export async function get(req, res, next) {
     try {
         const account = await findAccountById(req.params.id);
-        if (!account || account.merchant_id !== req.merchant.id)
+        if (
+            !account ||
+            account.merchant_id !== req.merchant.id ||
+            account.environment !== req.merchantMode
+        )
             throw errors.notFound('Account');
         return success(res, serializeAccount(account));
     } catch (err) {
@@ -69,6 +75,7 @@ export async function update(req, res, next) {
         const account = await renameAccount({
             accountId: req.params.id,
             merchantId: req.merchant.id,
+            environment: req.merchantMode,
             newName: req.body.customerName,
         });
         return success(res, serializeAccount(account));
@@ -82,6 +89,7 @@ export async function freeze(req, res, next) {
         const account = await freezeAccount({
             accountId: req.params.id,
             merchantId: req.merchant.id,
+            environment: req.merchantMode,
             reason: req.body?.reason,
         });
         return success(res, serializeAccount(account));
@@ -95,6 +103,7 @@ export async function unfreeze(req, res, next) {
         const account = await unfreezeAccount({
             accountId: req.params.id,
             merchantId: req.merchant.id,
+            environment: req.merchantMode,
         });
         return success(res, serializeAccount(account));
     } catch (err) {
@@ -107,6 +116,7 @@ export async function close(req, res, next) {
         const account = await closeAccount({
             accountId: req.params.id,
             merchantId: req.merchant.id,
+            environment: req.merchantMode,
         });
         return success(res, serializeAccount(account));
     } catch (err) {
@@ -121,6 +131,7 @@ export async function statement(req, res, next) {
         const result = await getStatement({
             accountId: req.params.id,
             merchantId: req.merchant.id,
+            environment: req.merchantMode,
             page,
             pageSize,
         });
@@ -138,7 +149,11 @@ export async function statement(req, res, next) {
 export async function history(req, res, next) {
     try {
         const account = await findAccountById(req.params.id);
-        if (!account || account.merchant_id !== req.merchant.id)
+        if (
+            !account ||
+            account.merchant_id !== req.merchant.id ||
+            account.environment !== req.merchantMode
+        )
             throw errors.notFound('Account');
         const log = await findAuditLog(req.params.id);
         return success(res, log);

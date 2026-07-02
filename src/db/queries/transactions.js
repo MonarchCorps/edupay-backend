@@ -16,14 +16,15 @@ export async function createTransaction(
         nambaTxnId,
         narration,
         nombaRawPayload,
+        environment = 'live',
     },
     client = pool,
 ) {
     const res = await client.query(
         `INSERT INTO transactions
        (virtual_account_id, merchant_id, amount, direction, status, matched, misdirected,
-        sender_name, sender_bank, sender_account, nomba_session_id, nomba_txn_id, narration, nomba_raw_payload)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+        sender_name, sender_bank, sender_account, nomba_session_id, nomba_txn_id, narration, nomba_raw_payload, environment)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
      RETURNING *`,
         [
             virtualAccountId,
@@ -40,15 +41,16 @@ export async function createTransaction(
             nambaTxnId ?? null,
             narration ?? null,
             nombaRawPayload ? JSON.stringify(nombaRawPayload) : null,
+            environment,
         ],
     );
     return res.rows[0];
 }
 
-export async function findTransactionById(id, merchantId) {
+export async function findTransactionById(id, merchantId, environment) {
     const res = await pool.query(
-        'SELECT * FROM transactions WHERE id=$1 AND merchant_id=$2',
-        [id, merchantId],
+        'SELECT * FROM transactions WHERE id=$1 AND merchant_id=$2 AND environment=$3',
+        [id, merchantId, environment],
     );
     return res.rows[0] ?? null;
 }
@@ -63,6 +65,7 @@ export async function findTransactionByNombaTxnId(nambaTxnId, client = pool) {
 
 export async function findTransactions({
     merchantId,
+    environment,
     virtualAccountId,
     direction,
     status,
@@ -70,9 +73,9 @@ export async function findTransactions({
     page = 1,
     pageSize = 20,
 }) {
-    const conds = ['t.merchant_id=$1'];
-    const params = [merchantId];
-    let i = 2;
+    const conds = ['t.merchant_id=$1', 't.environment=$2'];
+    const params = [merchantId, environment];
+    let i = 3;
 
     if (virtualAccountId) {
         conds.push(`t.virtual_account_id=$${i++}`);

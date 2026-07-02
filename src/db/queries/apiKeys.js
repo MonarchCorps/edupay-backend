@@ -1,11 +1,17 @@
 import pool from '../../config/db.js';
 
-export async function createApiKey({ merchantId, keyHash, keyPrefix, label }) {
+export async function createApiKey({
+    merchantId,
+    keyHash,
+    keyPrefix,
+    label,
+    environment = 'sandbox',
+}) {
     const res = await pool.query(
-        `INSERT INTO api_keys (merchant_id, key_hash, key_prefix, label)
-     VALUES ($1,$2,$3,$4)
-     RETURNING id, merchant_id, key_prefix, label, created_at`,
-        [merchantId, keyHash, keyPrefix, label ?? null],
+        `INSERT INTO api_keys (merchant_id, key_hash, key_prefix, label, environment)
+     VALUES ($1,$2,$3,$4,$5)
+     RETURNING id, merchant_id, key_prefix, label, environment, created_at`,
+        [merchantId, keyHash, keyPrefix, label ?? null, environment],
     );
     return res.rows[0];
 }
@@ -21,9 +27,17 @@ export async function findApiKeyByHash(keyHash) {
     return res.rows[0] ?? null;
 }
 
+export async function hasApiKeyForMerchant(merchantId) {
+    const res = await pool.query(
+        `SELECT 1 FROM api_keys WHERE merchant_id=$1 LIMIT 1`,
+        [merchantId],
+    );
+    return res.rows.length > 0;
+}
+
 export async function findApiKeysByMerchant(merchantId) {
     const res = await pool.query(
-        `SELECT id, merchant_id, key_prefix, label, last_used_at, revoked, created_at
+        `SELECT id, merchant_id, key_prefix, label, environment, last_used_at, revoked, created_at
      FROM api_keys WHERE merchant_id=$1 AND revoked=false ORDER BY created_at DESC`,
         [merchantId],
     );

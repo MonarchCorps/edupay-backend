@@ -13,15 +13,24 @@ import {
 } from '../db/queries/transactions.js';
 import { errors } from '../utils/errors.js';
 
-function assertOwner(account, merchantId) {
-    if (!account || account.merchant_id !== merchantId) {
+function assertOwner(account, merchantId, environment) {
+    if (
+        !account ||
+        account.merchant_id !== merchantId ||
+        account.environment !== environment
+    ) {
         throw errors.notFound('Account');
     }
 }
 
-export async function renameAccount({ accountId, merchantId, newName }) {
+export async function renameAccount({
+    accountId,
+    merchantId,
+    environment,
+    newName,
+}) {
     const account = await findAccountById(accountId);
-    assertOwner(account, merchantId);
+    assertOwner(account, merchantId, environment);
 
     const renameHistory = Array.isArray(account.rename_history)
         ? account.rename_history
@@ -33,13 +42,17 @@ export async function renameAccount({ accountId, merchantId, newName }) {
         changed_at: new Date().toISOString(),
     });
 
-    // Mirror to Nomba (best-effort — don't fail the DB update if Nomba errors)
-    try {
-        await nombaVA.updateVirtualAccount(account.account_ref, {
-            accountName: newName,
-        });
-    } catch (err) {
-        console.warn('Nomba name sync failed (non-fatal):', err.message);
+    // Mirror to Nomba (best-effort — don't fail the DB update if Nomba errors).
+    // Sandbox accounts have a fabricated account_ref that doesn't exist on
+    // Nomba, so skip the call entirely rather than sending garbage requests.
+    if (account.environment !== 'sandbox') {
+        try {
+            await nombaVA.updateVirtualAccount(account.account_ref, {
+                accountName: newName,
+            });
+        } catch (err) {
+            console.warn('Nomba name sync failed (non-fatal):', err.message);
+        }
     }
 
     const updated = await updateAccountName(accountId, newName, renameHistory);
@@ -54,9 +67,14 @@ export async function renameAccount({ accountId, merchantId, newName }) {
     return updated;
 }
 
-export async function freezeAccount({ accountId, merchantId, reason }) {
+export async function freezeAccount({
+    accountId,
+    merchantId,
+    environment,
+    reason,
+}) {
     const account = await findAccountById(accountId);
-    assertOwner(account, merchantId);
+    assertOwner(account, merchantId, environment);
 
     if (account.status !== 'active') {
         throw errors.badRequest(
@@ -64,10 +82,12 @@ export async function freezeAccount({ accountId, merchantId, reason }) {
         );
     }
 
-    try {
-        await nombaVA.suspendVirtualAccount(account.nomba_account_number);
-    } catch (err) {
-        console.warn('Nomba suspend failed (non-fatal):', err.message);
+    if (account.environment !== 'sandbox') {
+        try {
+            await nombaVA.suspendVirtualAccount(account.nomba_account_number);
+        } catch (err) {
+            console.warn('Nomba suspend failed (non-fatal):', err.message);
+        }
     }
 
     const updated = await updateAccountStatus(accountId, 'frozen');
@@ -83,9 +103,9 @@ export async function freezeAccount({ accountId, merchantId, reason }) {
     return updated;
 }
 
-export async function unfreezeAccount({ accountId, merchantId }) {
+export async function unfreezeAccount({ accountId, merchantId, environment }) {
     const account = await findAccountById(accountId);
-    assertOwner(account, merchantId);
+    assertOwner(account, merchantId, environment);
 
     if (account.status !== 'frozen') {
         throw errors.badRequest(
@@ -106,19 +126,21 @@ export async function unfreezeAccount({ accountId, merchantId }) {
     return updated;
 }
 
-export async function closeAccount({ accountId, merchantId }) {
+export async function closeAccount({ accountId, merchantId, environment }) {
     const account = await findAccountById(accountId);
-    assertOwner(account, merchantId);
+    assertOwner(account, merchantId, environment);
 
     if (account.status === 'closed') {
         throw errors.badRequest('Account is already closed');
     }
 
     // Expire DVA on Nomba before locking the DB (best-effort)
-    try {
-        await nombaVA.expireVirtualAccount(account.account_ref);
-    } catch (err) {
-        console.warn('Nomba expire failed (non-fatal):', err.message);
+    if (account.environment !== 'sandbox') {
+        try {
+            await nombaVA.expireVirtualAccount(account.account_ref);
+        } catch (err) {
+            console.warn('Nomba expire failed (non-fatal):', err.message);
+        }
     }
 
     // Atomic: sweep balance + update status in one transaction
@@ -156,9 +178,10 @@ export async function closeAccount({ accountId, merchantId }) {
 export async function resolveMisdirectedPayment({
     transactionId,
     merchantId,
+    environment,
     action,
 }) {
-    const txn = await findTransactionById(transactionId, merchantId);
+    const txn = await findTransactionById(transactionId, merchantId, environment);
     if (!txn) throw errors.notFound('Transaction');
     if (!txn.misdirected) {
         throw errors.badRequest('Transaction is not flagged as misdirected');
@@ -179,9 +202,13 @@ export async function resolveMisdirectedPayment({
             },
         });
     } else if (action === 'return') {
-        // Production: call Nomba payout API with txn.sender_account + sender_bank
-        // Sandbox: mark resolved, balance unchanged (funds not actually credited)
+        // TODO: actually send the money back — call Nomba's payout API with
+        // txn.sender_account + txn.sender_bank. Out of scope for the hackathon
+        // deadline; for now this only flips the DB state (unflags the
+        // transaction/account) without moving funds. Balance was never
+        // credited for a misdirected transaction, so nothing to reverse here.
         await updateTransactionMisdirected(transactionId, false, false);
+        await updateAccountStatus(txn.virtual_account_id, 'active');
         await addAuditLog({
             virtualAccountId: txn.virtual_account_id,
             action: 'misdirected_returned',

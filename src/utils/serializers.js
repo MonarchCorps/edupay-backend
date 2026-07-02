@@ -13,6 +13,7 @@ export function serializeAccount(row) {
         lastCreditAt: row.last_credit_at ?? null,
         createdAt: row.created_at,
         nombaRef: row.account_ref ?? '',
+        environment: row.environment,
     };
 }
 
@@ -35,6 +36,7 @@ export function serializeTransaction(row) {
             row.running_balance != null
                 ? Number(row.running_balance)
                 : undefined,
+        environment: row.environment,
     };
 }
 
@@ -59,6 +61,7 @@ export function serializeApiKey(row) {
         // key is present only on creation; key_prefix is the display token for list view
         key: row.key ?? row.key_prefix,
         label: row.label ?? null,
+        environment: row.environment,
         createdAt: row.created_at,
         lastUsed: row.last_used_at ?? null,
     };
