@@ -1,9 +1,9 @@
 import pool from '../../config/db.js';
 
-export async function createMerchant({ name, email }) {
+export async function createMerchant({ name, email, passwordHash }) {
     const res = await pool.query(
-        `INSERT INTO merchants (name, email) VALUES ($1, $2) RETURNING *`,
-        [name, email],
+        `INSERT INTO merchants (name, email, password_hash) VALUES ($1, $2, $3) RETURNING *`,
+        [name, email, passwordHash],
     );
     return res.rows[0];
 }

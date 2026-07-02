@@ -7,6 +7,7 @@ const PORT = Number(process.env.PORT ?? 3001);
 const REQUIRED_ENV = [
     'DATABASE_URL',
     'API_KEY_SALT',
+    'JWT_SECRET',
     'NOMBA_WEBHOOK_SECRET',
     'NOMBA_CLIENT_ID',
     'NOMBA_CLIENT_SECRET',

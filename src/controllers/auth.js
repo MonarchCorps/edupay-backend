@@ -1,4 +1,6 @@
 import { generateApiKey } from '../utils/crypto.js';
+import { hashPassword, verifyPassword } from '../utils/password.js';
+import { signSessionToken } from '../utils/jwt.js';
 import {
     createApiKey,
     findApiKeysByMerchant,
@@ -11,16 +13,16 @@ import {
     findMerchantById,
 } from '../db/queries/merchants.js';
 import { success } from '../utils/response.js';
-import { serializeApiKey } from '../utils/serializers.js';
+import { serializeApiKey, serializeMerchant } from '../utils/serializers.js';
 import { errors } from '../utils/errors.js';
 
-// Sign-in check: the caller already proved possession of a valid API key via
-// requireAuth, so this just confirms it and returns the merchant it belongs to.
+// Dashboard identity check — the caller already proved a valid session via
+// requireSession, so this just returns the merchant profile it belongs to.
 export async function getMe(req, res, next) {
     try {
         const merchant = await findMerchantById(req.merchant.id);
         if (!merchant) throw errors.notFound('Merchant');
-        return success(res, merchant);
+        return success(res, serializeMerchant(merchant));
     } catch (err) {
         next(err);
     }
@@ -28,12 +30,34 @@ export async function getMe(req, res, next) {
 
 export async function registerMerchant(req, res, next) {
     try {
-        const { name, email } = req.body;
+        const { name, email, password } = req.body;
         const existing = await findMerchantByEmail(email);
         if (existing) throw errors.duplicate('Email');
 
-        const merchant = await createMerchant({ name, email });
-        return success(res, merchant, 201);
+        const passwordHash = await hashPassword(password);
+        const merchant = await createMerchant({ name, email, passwordHash });
+        return success(res, serializeMerchant(merchant), 201);
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function login(req, res, next) {
+    try {
+        const { email, password } = req.body;
+        const merchant = await findMerchantByEmail(email);
+
+        // Same generic error whether the email doesn't exist or the
+        // password is wrong — don't leak which one it was.
+        const valid =
+            merchant && (await verifyPassword(password, merchant.password_hash));
+        if (!valid) throw errors.invalidCredentials();
+
+        const token = signSessionToken(merchant);
+        return success(res, {
+            token,
+            merchant: serializeMerchant(merchant),
+        });
     } catch (err) {
         next(err);
     }

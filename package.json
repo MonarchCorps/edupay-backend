@@ -8,15 +8,17 @@
     "dev": "node --watch src/server.js",
     "build": "esbuild src/server.js --bundle --platform=node --format=esm --outfile=dist/server.js --packages=external",
     "start": "node src/server.js",
-    "migrate": "psql $DATABASE_URL -f src/db/migrations/001_initial.sql && psql $DATABASE_URL -f src/db/migrations/002_add_last_credit_at.sql && psql $DATABASE_URL -f src/db/migrations/003_add_environment.sql"
+    "migrate": "psql $DATABASE_URL -f src/db/migrations/001_initial.sql && psql $DATABASE_URL -f src/db/migrations/002_add_last_credit_at.sql && psql $DATABASE_URL -f src/db/migrations/003_add_environment.sql && psql $DATABASE_URL -f src/db/migrations/004_add_password_hash.sql && psql $DATABASE_URL -f src/db/migrations/005_add_webhook_merchant.sql"
   },
   "dependencies": {
     "axios": "^1.7.7",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.2",
     "express-rate-limit": "^7.4.1",
     "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.3",
     "pg": "^8.13.0",
     "uuid": "^10.0.0",
     "zod": "^3.23.8"

@@ -52,6 +52,7 @@ export async function listEvents(req, res, next) {
     try {
         const { processed, page, pageSize } = req.query;
         const { data, total } = await findWebhookEvents({
+            merchantId: req.merchant.id,
             processed:
                 processed !== undefined ? processed === 'true' : undefined,
             page: Number(page) || 1,
@@ -72,7 +73,8 @@ export async function listEvents(req, res, next) {
 export async function getEvent(req, res, next) {
     try {
         const event = await findWebhookEventById(req.params.id);
-        if (!event) throw errors.notFound('Webhook event');
+        if (!event || event.merchant_id !== req.merchant.id)
+            throw errors.notFound('Webhook event');
         return success(res, serializeWebhookEvent(event));
     } catch (err) {
         next(err);
@@ -82,7 +84,8 @@ export async function getEvent(req, res, next) {
 export async function replay(req, res, next) {
     try {
         const event = await findWebhookEventById(req.params.id);
-        if (!event) throw errors.notFound('Webhook event');
+        if (!event || event.merchant_id !== req.merchant.id)
+            throw errors.notFound('Webhook event');
         if (event.processed) {
             throw errors.conflict(
                 'Event has already been processed successfully',

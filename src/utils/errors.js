@@ -12,6 +12,10 @@ export const errors = {
         new AppError(`${resource} not found`, 'NOT_FOUND', 404),
     unauthorized: () =>
         new AppError('Invalid or missing API key', 'UNAUTHORIZED', 401),
+    invalidSession: () =>
+        new AppError('Invalid or expired session', 'UNAUTHORIZED', 401),
+    invalidCredentials: () =>
+        new AppError('Invalid email or password', 'UNAUTHORIZED', 401),
     forbidden: (msg = 'Access denied') => new AppError(msg, 'FORBIDDEN', 403),
     duplicate: (field) =>
         new AppError(`${field} already exists`, 'DUPLICATE', 409),

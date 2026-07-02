@@ -16,9 +16,9 @@ export const rateLimiter = rateLimit({
     },
 });
 
-// Sign-in verification (/auth/me) — a handful of attempts per IP per minute,
-// tight enough to make brute-forcing a valid API key impractical.
-export const authMeRateLimiter = rateLimit({
+// Sign-in attempts (/auth/login, /auth/me) — a handful per IP per minute,
+// tight enough to make brute-forcing a password or session impractical.
+export const authRateLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
     max: 10,
     standardHeaders: true,

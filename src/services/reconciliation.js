@@ -13,6 +13,7 @@ import {
 import {
     markWebhookProcessed,
     markWebhookFailed,
+    updateWebhookEventMerchant,
 } from '../db/queries/webhookEvents.js';
 
 export async function reconcileWebhook(webhookEvent) {
@@ -78,6 +79,10 @@ async function handlePaymentSuccess(webhookEvent, client) {
             `Unmatched account reference: accountRef ${aliasRef} not found — no virtual account matched`,
         );
     }
+
+    // Now that we know which account this is, tag the webhook event with its
+    // merchant so it only ever shows up in that merchant's own event log.
+    await updateWebhookEventMerchant(webhookEvent.id, account.merchant_id, client);
 
     // Nomba sends transactionAmount (Naira), not amount
     const amountKobo = toKobo(txn.transactionAmount ?? txn.amount);
@@ -179,6 +184,8 @@ async function handlePaymentReversal(webhookEvent, client) {
     );
     if (!original) return; // original never recorded — nothing to reverse
 
+    await updateWebhookEventMerchant(webhookEvent.id, original.merchant_id, client);
+
     await updateTransactionStatus(original.id, 'reversed', client);
 
     await createTransaction(
@@ -228,6 +235,8 @@ async function handlePaymentFailed(webhookEvent, client) {
 
     const account = await findAccountByRef(txn.aliasAccountReference, client);
     if (!account) return;
+
+    await updateWebhookEventMerchant(webhookEvent.id, account.merchant_id, client);
 
     await createTransaction(
         {

@@ -7,6 +7,7 @@ import accountRoutes from './routes/accounts.js';
 import transactionRoutes from './routes/transactions.js';
 import webhookRoutes from './routes/webhooks.js';
 import authRoutes from './routes/auth.js';
+import sandboxRoutes from './routes/sandbox.js';
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use('/accounts', accountRoutes);
 app.use('/transactions', transactionRoutes);
 app.use('/webhooks', webhookRoutes);
 app.use('/auth', authRoutes);
+app.use('/sandbox', sandboxRoutes);
 
 app.get('/healthz', (req, res) =>
     res.json({ status: 'ok', timestamp: new Date().toISOString() }),

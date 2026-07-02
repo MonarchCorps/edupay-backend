@@ -1,13 +1,16 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { requireAuth } from '../middleware/auth.js';
+import {
+    requireApiKeyOrSession,
+    requireMerchantMode,
+} from '../middleware/sessionAuth.js';
 import { idempotency } from '../utils/idempotency.js';
 import * as ctrl from '../controllers/accounts.js';
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireApiKeyOrSession, requireMerchantMode);
 
 const provisionSchema = z.object({
     customerName: z.string().min(2).max(255),

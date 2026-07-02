@@ -54,6 +54,16 @@ export function serializeWebhookEvent(row) {
     };
 }
 
+export function serializeMerchant(row) {
+    if (!row) return null;
+    return {
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        createdAt: row.created_at,
+    };
+}
+
 export function serializeApiKey(row) {
     if (!row) return null;
     return {

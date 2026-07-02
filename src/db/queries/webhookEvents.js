@@ -29,20 +29,23 @@ export async function findWebhookEventByNombaRequestId(nombaRequestId) {
 }
 
 export async function findWebhookEvents({
+    merchantId,
     processed,
     page = 1,
     pageSize = 20,
-} = {}) {
-    const conds = [];
-    const params = [];
-    let i = 1;
+}) {
+    // merchantId is required — an event with no resolvable merchant (e.g.
+    // unmatched account_ref) is never returned to anyone via this path.
+    const conds = ['merchant_id=$1'];
+    const params = [merchantId];
+    let i = 2;
 
     if (processed !== undefined) {
         conds.push(`processed=$${i++}`);
         params.push(processed);
     }
 
-    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+    const where = `WHERE ${conds.join(' AND ')}`;
     const offset = (page - 1) * pageSize;
 
     const [rows, count] = await Promise.all([
@@ -54,6 +57,13 @@ export async function findWebhookEvents({
     ]);
 
     return { data: rows.rows, total: parseInt(count.rows[0].count, 10) };
+}
+
+export async function updateWebhookEventMerchant(id, merchantId, client = pool) {
+    await client.query('UPDATE webhook_events SET merchant_id=$1 WHERE id=$2', [
+        merchantId,
+        id,
+    ]);
 }
 
 export async function markWebhookProcessed(id, client = pool) {
